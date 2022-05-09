@@ -72,6 +72,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
         pair = IUniswapV2Pair(pair_);
         underlying = IUniswapV2Pair(pair_).token0() == WETH ? IUniswapV2Pair(pair_).token1() : IUniswapV2Pair(pair_).token0();
         baseUnit = 10 ** underlyingDecimals;
+        priceCeiling = type(uint).max;
         //Update oracle at deployment, to avoid having to check against 0 observations for the rest of the oracle's lifetime
         _update();
     }
@@ -79,15 +80,13 @@ contract UniswapTwapPriceOracleV2Ceiling {
     /**
      * @dev Return the TWAP value price0. Revert if TWAP time range is not within the threshold.
      * Copied from: https://github.com/AlphaFinanceLab/homora-v2/blob/master/contracts/oracle/BaseKP3ROracle.sol
-     * @param observationsToDiscard Number of observations to discard when getting price. Discard 1 to get official price, discard 0 when getting current observation price.
      */
-    function price0TWAP(uint observationsToDiscard) internal view returns (uint) {
+    function price0TWAP() internal view returns (uint) {
         uint length = observationCount;
-        require(observationsToDiscard < 2);
-        Observation memory lastObservation = observations[(length - observationsToDiscard) % OBSERVATION_BUFFER];
+        Observation memory lastObservation = observations[(length - 1) % OBSERVATION_BUFFER];
         if (lastObservation.timestamp > now - MIN_TWAP_TIME) {
             require(length > 1, 'No length-2 TWAP observation.');//TODO: A lot of checking to do for something that's only relevant when only 1 observation have been made
-            lastObservation = observations[(length - 1 - observationsToDiscard) % OBSERVATION_BUFFER];
+            lastObservation = observations[(length - 2) % OBSERVATION_BUFFER];
         }
         uint elapsedTime = now - lastObservation.timestamp;
         require(elapsedTime >= MIN_TWAP_TIME, 'Bad TWAP time.');
@@ -97,15 +96,13 @@ contract UniswapTwapPriceOracleV2Ceiling {
     /**
      * @dev Return the TWAP value price1. Revert if TWAP time range is not within the threshold.
      * Copied from: https://github.com/AlphaFinanceLab/homora-v2/blob/master/contracts/oracle/BaseKP3ROracle.sol
-     * @param observationsToDiscard Number of observations to discard when getting price. Discard 1 to get official price, discard 0 when getting current observation price.
      */
-    function price1TWAP(uint observationsToDiscard) internal view returns (uint) {
+    function price1TWAP() internal view returns (uint) {
         uint length = observationCount;
-        require(observationsToDiscard < 2);
-        Observation memory lastObservation = observations[(length - observationsToDiscard) % OBSERVATION_BUFFER];
+        Observation memory lastObservation = observations[(length - 1) % OBSERVATION_BUFFER];
         if (lastObservation.timestamp > now - MIN_TWAP_TIME) {
             require(length > 1, 'No length-2 TWAP observation.');//TODO: A lot of checking to do for something that's only relevant when only 1 observation have been made
-            lastObservation = observations[(length - 1 - observationsToDiscard) % OBSERVATION_BUFFER];
+            lastObservation = observations[(length - 2) % OBSERVATION_BUFFER];
         }
         uint elapsedTime = now - lastObservation.timestamp;
         require(elapsedTime >= MIN_TWAP_TIME, 'Bad TWAP time.');
@@ -145,13 +142,16 @@ contract UniswapTwapPriceOracleV2Ceiling {
      */
     function price() public view returns (uint) {
         // Return ERC20/ETH TWAP
-        return (underlying < WETH ? price0TWAP(1) : price1TWAP(1)).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        uint twapPrice = (underlying < WETH ? price0TWAP() : price1TWAP()).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        return twapPrice < priceCeiling ? twapPrice : priceCeiling;
     }
-
+    /*
     function observationPrice() internal view returns (uint) {
         // Return ERC20/ETH TWAP
-        return (underlying < WETH ? price0TWAP(0) : price1TWAP(0)).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        uint twapPrice = (underlying < WETH ? price0TWAP(0) : price1TWAP(0)).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        return twapPrice < priceCeiling : twapPrice ? priceCeiling;
     }
+    */
 
     /**
      * @dev Struct for cumulative price observations.
@@ -194,7 +194,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
         bool useToken0Price = pair.token0() != WETH;
 
         // Get TWAP price
-        uint256 twapPrice = (useToken0Price ? price0TWAP(1) : price1TWAP(1)).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        uint256 twapPrice = (useToken0Price ? price0TWAP() : price1TWAP()).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
     
         // Get spot price
         (uint reserve0, uint reserve1, ) = pair.getReserves();
@@ -211,16 +211,16 @@ contract UniswapTwapPriceOracleV2Ceiling {
         // 1) The elapsed time since the last observation is > MIN_TWAP_TIME
         // 2) The observation price (current price) is below priceCeiling
         // Note that we loop observationCount around OBSERVATION_BUFFER so we don't waste gas on new storage slots
-        if((block.timestamp - observations[(observationCount - 1) % OBSERVATION_BUFFER].timestamp) > MIN_TWAP_TIME){
-            return observationPrice() < priceCeiling;        
-        }
-        return false;
+        return(block.timestamp - observations[(observationCount - 1) % OBSERVATION_BUFFER].timestamp) > MIN_TWAP_TIME;
     }
 
     /// @notice Update the oracle
-    function update() external {
-        require(_updateable(), "NOT UPDATEABLE");
+    function update() external returns(bool) {
+        if(!_updateable()){
+            return false;
+        }
         _update();
+        return true;
     }
 
 

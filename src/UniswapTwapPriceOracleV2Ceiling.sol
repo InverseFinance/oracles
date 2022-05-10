@@ -213,6 +213,10 @@ contract UniswapTwapPriceOracleV2Ceiling {
         // Note that we loop observationCount around OBSERVATION_BUFFER so we don't waste gas on new storage slots
         return(block.timestamp - observations[(observationCount - 1) % OBSERVATION_BUFFER].timestamp) > MIN_TWAP_TIME;
     }
+    
+    function timeSinceLastUpdate() public view returns (uint) {
+        return block.timestamp - observations[(observationCount - 1) % OBSERVATION_BUFFER].timestamp;
+    }
 
     /// @notice Update the oracle
     function update() external returns(bool) {

@@ -245,14 +245,15 @@ contract UniswapTwapPriceOracleV2Ceiling {
 
     /**
      * @dev Function for setting newPriceCeiling, only callable by guardian
-     * @param newPriceCeiling The new price ceiling, must be within max and min parameters
+     * @param newPriceCeiling_ The new price ceiling, must be within max and min parameters
      */
-    function setPriceCeiling(uint newPriceCeiling) external {
+    function setPriceCeiling(uint newPriceCeiling_) external {
         require(msg.sender == guardian);
         uint currentPrice = price();
-        require(newPriceCeiling <= currentPrice + currentPrice*maxBPCeiling/10_000);
-        require(newPriceCeiling >= currentPrice + currentPrice*minBPCeiling/10_000);
-        priceCeiling = newPriceCeiling;
+        require(newPriceCeiling_ <= currentPrice + currentPrice*maxBPCeiling/10_000);
+        require(newPriceCeiling_ >= currentPrice + currentPrice*minBPCeiling/10_000);
+        priceCeiling = newPriceCeiling_;
+        emit newPriceCeiling(newPriceCeiling_);
     }
 
     // **************************
@@ -261,30 +262,41 @@ contract UniswapTwapPriceOracleV2Ceiling {
 
     /**
      * @dev Function for setting new guardian, only callable by governance
-     * @param newGuardian address of the new guardian
+     * @param newGuardian_ address of the new guardian
      */
-    function setGuardian(address newGuardian) external {
+    function setGuardian(address newGuardian_) external {
         require(msg.sender == governance);
-        guardian = newGuardian;
+        guardian = newGuardian_;
+        emit newGuardian(newGuardian_);
     }
 
     /**
      * @dev Function for setting new max height of price ceiling in basis points. 1 = 0.01%
-     * @param newMaxBPCeiling New maximum amount a ceiling can go above current price
+     * @param newMaxBPCeiling_ New maximum amount a ceiling can go above current price
      */
-    function setMaxBPCeiling(uint newMaxBPCeiling) external {
+    function setMaxBPCeiling(uint newMaxBPCeiling_) external {
         require(msg.sender == governance);
-        require(newMaxBPCeiling >= minBPCeiling);
-        maxBPCeiling = newMaxBPCeiling;
+        require(newMaxBPCeiling_ >= minBPCeiling);
+        maxBPCeiling = newMaxBPCeiling_;
+        emit newMaxBPCeiling(newMaxBPCeiling_);
     }
 
     /**
      * @dev Function for setting new min height of price ceiling in basis points. 1 = 0.01%
-     * @param newMinBPCeiling New minimum amount a ceiling must be above current price
+     * @param newMinBPCeiling_ New minimum amount a ceiling must be above current price
      */
-    function setMinBPCeiling(uint newMinBPCeiling) external {
+    function setMinBPCeiling(uint newMinBPCeiling_) external {
         require(msg.sender == governance);
-        require(maxBPCeiling >= newMinBPCeiling);
-        minBPCeiling = newMinBPCeiling;
+        require(maxBPCeiling >= newMinBPCeiling_);
+        minBPCeiling = newMinBPCeiling_;
+        emit newMinBPCeiling(newMinBPCeiling_);
     }
+
+    // ************
+    // ** EVENTS **
+    // ************
+    event newPriceCeiling(uint newPriceCeiling);
+    event newGuardian(address newGuardian);
+    event newMaxBPCeiling(uint newMaxBPCeiling);
+    event newMinBPCeiling(uint newMinBPCeiling);
 }

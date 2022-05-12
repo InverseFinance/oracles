@@ -36,12 +36,27 @@ contract UniswapTwapPriceOracleV2CeilingTests is DSTest {
 
     function test_UpdateFalse_When_WithinTWAPTime() public {
         vm.startPrank(wethHolder);
-        swapExactIn(1 ether, weth, unipair, wethHolder);
         assertTrue(oracle.update());
+        swapExactIn(1 ether, weth, unipair, wethHolder);
 
         assert(oracle.update() == false);
         vm.warp(block.timestamp + oracle.MIN_TWAP_TIME() - 1);
         assert(oracle.update() == false);
+    }
+
+    function test_PriceChange_When_UpdateIsCalled() public {
+        vm.warp(block.timestamp + 15 minutes + 1);
+        oracle.update();
+        vm.startPrank(wethHolder);
+        uint priceBefore = oracle.price();
+        log_uint(priceBefore);
+
+        swapExactIn(1 ether, weth, unipair, wethHolder);
+        vm.warp(block.timestamp + oracle.MIN_TWAP_TIME() +1);
+        assertTrue(oracle.update());
+        log_uint(oracle.price());
+
+        assert(priceBefore < oracle.price());
     }
 
     // ************************

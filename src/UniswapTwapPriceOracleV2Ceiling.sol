@@ -36,7 +36,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
     /**
      * @dev underlying token contract address.
      */
-    address immutable public underlying;
+    address constant public underlying = 0x41D5D79431A913C4aE7d69a668ecdfE5fF9DFB68;
 
     /**
      * @dev uniswapV2 pair between underlying and WETH
@@ -69,7 +69,6 @@ contract UniswapTwapPriceOracleV2Ceiling {
         minBPCeiling = minBPCeiling_;
         governance = governance_;
         guardian = guardian_;
-        underlying = pair.token0() == WETH ? pair.token1() : pair.token0();
         baseUnit = 10 ** underlyingDecimals;
         priceCeiling = type(uint).max;
         //Update oracle at deployment, to avoid having to check against 0 observations for the rest of the oracle's lifetime
@@ -80,7 +79,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
      * @dev Return the TWAP value price0. Revert if TWAP time range is not within the threshold.
      * Copied from: https://github.com/AlphaFinanceLab/homora-v2/blob/master/contracts/oracle/BaseKP3ROracle.sol
      */
-    function price0TWAP() internal view returns (uint) {
+    function priceTWAP() internal view returns (uint) {
         uint length = observationCount;
         Observation memory lastObservation = observations[(length - 1) % OBSERVATION_BUFFER];
         if (lastObservation.timestamp > now - MIN_TWAP_TIME) {
@@ -89,76 +88,36 @@ contract UniswapTwapPriceOracleV2Ceiling {
         }
         uint elapsedTime = now - lastObservation.timestamp;
         require(elapsedTime >= MIN_TWAP_TIME, 'Bad TWAP time.');
-        return (currentPx0Cumu() - lastObservation.price0Cumulative) / elapsedTime; // overflow is desired
+        return (currentPxCumu() - lastObservation.priceCumulative) / elapsedTime; // overflow is desired
     }
-
     /**
-     * @dev Return the TWAP value price1. Revert if TWAP time range is not within the threshold.
+     * @dev Return the current price cumulative value on Uniswap.
      * Copied from: https://github.com/AlphaFinanceLab/homora-v2/blob/master/contracts/oracle/BaseKP3ROracle.sol
      */
-    function price1TWAP() internal view returns (uint) {
-        uint length = observationCount;
-        Observation memory lastObservation = observations[(length - 1) % OBSERVATION_BUFFER];
-        if (lastObservation.timestamp > now - MIN_TWAP_TIME) {
-            require(length > 1, 'No length-2 TWAP observation.');//TODO: A lot of checking to do for something that's only relevant when only 1 observation have been made
-            lastObservation = observations[(length - 2) % OBSERVATION_BUFFER];
-        }
-        uint elapsedTime = now - lastObservation.timestamp;
-        require(elapsedTime >= MIN_TWAP_TIME, 'Bad TWAP time.');
-        return (currentPx1Cumu() - lastObservation.price1Cumulative) / elapsedTime; // overflow is desired
-    }
-
-    /**
-     * @dev Return the current price0 cumulative value on Uniswap.
-     * Copied from: https://github.com/AlphaFinanceLab/homora-v2/blob/master/contracts/oracle/BaseKP3ROracle.sol
-     */
-    function currentPx0Cumu() internal view returns (uint px0Cumu) {
+    function currentPxCumu() internal view returns (uint pxCumu) {
         uint32 currTime = uint32(now);
-        px0Cumu = pair.price0CumulativeLast();
+        pxCumu = pair.price0CumulativeLast();
         (uint reserve0, uint reserve1, uint32 lastTime) = pair.getReserves();
         if (lastTime != now) {
             uint32 timeElapsed = currTime - lastTime; // overflow is desired
-            px0Cumu += uint((reserve1 << 112) / reserve0) * timeElapsed; // overflow is desired
+            pxCumu += uint((reserve1 << 112) / reserve0) * timeElapsed; // overflow is desired
         }
     }
-
-    /**
-     * @dev Return the current price1 cumulative value on Uniswap.
-     * Copied from: https://github.com/AlphaFinanceLab/homora-v2/blob/master/contracts/oracle/BaseKP3ROracle.sol
-     */
-    function currentPx1Cumu() internal view returns (uint px1Cumu) {
-        uint32 currTime = uint32(now);
-        px1Cumu = pair.price1CumulativeLast();
-        (uint reserve0, uint reserve1, uint32 lastTime) = pair.getReserves();
-        if (lastTime != currTime) {
-            uint32 timeElapsed = currTime - lastTime; // overflow is desired
-            px1Cumu += uint((reserve0 << 112) / reserve1) * timeElapsed; // overflow is desired
-        }
-    }
-    
     /**
      * @dev Returns the price of `underlying` in terms of `baseToken` given `factory`.
      */
     function price() public view returns (uint) {
         // Return ERC20/ETH TWAP
-        uint twapPrice = (underlying < WETH ? price0TWAP() : price1TWAP()).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        uint twapPrice = priceTWAP().div(2 ** 56).mul(baseUnit).div(2 ** 56);
         return twapPrice < priceCeiling ? twapPrice : priceCeiling;
     }
-    /*
-    function observationPrice() internal view returns (uint) {
-        // Return ERC20/ETH TWAP
-        uint twapPrice = (underlying < WETH ? price0TWAP(0) : price1TWAP(0)).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
-        return twapPrice < priceCeiling : twapPrice ? priceCeiling;
-    }
-    */
 
     /**
      * @dev Struct for cumulative price observations.
      */
     struct Observation {
         uint32 timestamp;
-        uint256 price0Cumulative;
-        uint256 price1Cumulative;
+        uint256 priceCumulative;
     }
 
     /**
@@ -189,15 +148,12 @@ contract UniswapTwapPriceOracleV2Ceiling {
 
     /// @dev Internal function to return oracle deviation from its TWAP price as a ratio scaled by 1e18
     function _deviation() internal view returns (uint256) {
-        // Figure out which TWAP price to use
-        bool useToken0Price = pair.token0() != WETH;
-
         // Get TWAP price
-        uint256 twapPrice = (useToken0Price ? price0TWAP() : price1TWAP()).div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
+        uint256 twapPrice = priceTWAP().div(2 ** 56).mul(baseUnit).div(2 ** 56); // Scaled by 1e18, not 2 ** 112
     
         // Get spot price
         (uint reserve0, uint reserve1, ) = pair.getReserves();
-        uint256 spotPrice = useToken0Price ? reserve1.mul(baseUnit).div(reserve0) : reserve0.mul(baseUnit).div(reserve1);
+        uint256 spotPrice = reserve1.mul(baseUnit).div(reserve0);
 
         // Get ratio and return deviation
         uint256 ratio = spotPrice.mul(1e18).div(twapPrice);
@@ -229,13 +185,12 @@ contract UniswapTwapPriceOracleV2Ceiling {
 
     /// @dev Internal function to update
     function _update() internal{
-        // Get cumulative price(s)
-        uint256 price0Cumulative = pair.price0CumulativeLast();
-        uint256 price1Cumulative = pair.price1CumulativeLast();
+        // Get cumulative price
+        uint256 priceCumulative = pair.price0CumulativeLast();
         
         // Loop observationCount around OBSERVATION_BUFFER so we don't waste gas on new storage slots
         (, , uint32 lastTime) = pair.getReserves();
-        observations[observationCount % OBSERVATION_BUFFER] = Observation(lastTime, price0Cumulative, price1Cumulative);
+        observations[observationCount % OBSERVATION_BUFFER] = Observation(lastTime, priceCumulative);
         observationCount++;
     }
     // **************************
@@ -258,6 +213,16 @@ contract UniswapTwapPriceOracleV2Ceiling {
     // **************************
     // ** GOVERNANCE FUNCTIONS **
     // **************************
+
+    /**
+     * @dev Function for setting new governance, only callable by governance
+     * @param newGovernance_ address of the new guardian
+     */
+    function setGovernance(address newGovernance_) external {
+        require(msg.sender == governance);
+        governance = newGovernance_;
+        emit newGovernance(newGovernance_);
+    }
 
     /**
      * @dev Function for setting new guardian, only callable by governance
@@ -296,6 +261,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
     // ************
     event newPriceCeiling(uint newPriceCeiling);
     event newGuardian(address newGuardian);
+    event newGovernance(address newGovernance);
     event newMaxBPCeiling(uint newMaxBPCeiling);
     event newMinBPCeiling(uint newMinBPCeiling);
 }

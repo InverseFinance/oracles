@@ -41,7 +41,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
     /**
      * @dev uniswapV2 pair between underlying and WETH
      */
-    IUniswapV2Pair public pair;
+    IUniswapV2Pair constant public pair = IUniswapV2Pair(0x328dFd0139e26cB0FEF7B0742B49b0fe4325F821);
 
     /**
      * @dev Governance address, can set maxBPCeiling and minBPCeiling
@@ -63,14 +63,13 @@ contract UniswapTwapPriceOracleV2Ceiling {
      */
     uint immutable private baseUnit;
 
-    constructor(uint MIN_TWAP_TIME_, uint maxBPCeiling_, uint minBPCeiling_, uint underlyingDecimals, address pair_, address governance_, address guardian_) public{
+    constructor(uint MIN_TWAP_TIME_, uint maxBPCeiling_, uint minBPCeiling_, uint underlyingDecimals, address governance_, address guardian_) public{
         MIN_TWAP_TIME = MIN_TWAP_TIME_;
         maxBPCeiling = maxBPCeiling_;
         minBPCeiling = minBPCeiling_;
         governance = governance_;
         guardian = guardian_;
-        pair = IUniswapV2Pair(pair_);
-        underlying = IUniswapV2Pair(pair_).token0() == WETH ? IUniswapV2Pair(pair_).token1() : IUniswapV2Pair(pair_).token0();
+        underlying = pair.token0() == WETH ? pair.token1() : pair.token0();
         baseUnit = 10 ** underlyingDecimals;
         priceCeiling = type(uint).max;
         //Update oracle at deployment, to avoid having to check against 0 observations for the rest of the oracle's lifetime

@@ -23,7 +23,6 @@ contract UniswapTwapPriceOracleV2CeilingTests is DSTest {
             20000, //Ceiling can be set 200% higher than current price
             5000, // Ceiling must be set 50% higher than current price
             18, //Inv decimals
-            pair,
             gov,
             guardian
         );

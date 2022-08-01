@@ -14,8 +14,8 @@ interface IUniswapV2OracleCeiling {
     function price() external view returns (uint256 price);
 }
 
-contract InvFeed is IFeed {
-    IUniswapV2OracleCeiling public constant oracle = IUniswapV2OracleCeiling(0x7E2A6e9395df9f01C00BC3Af095068B454FD896e);
+contract InvFeedV2 is IFeed {
+    IUniswapV2OracleCeiling public constant oracle = IUniswapV2OracleCeiling(0x323959FfEB06eE77a6B84F8e193cf100E6191fB7);
     IAggregator public constant ETH = IAggregator(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
 
     function latestAnswer() public view override returns (uint256) {

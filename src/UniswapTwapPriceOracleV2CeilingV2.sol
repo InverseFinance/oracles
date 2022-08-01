@@ -10,7 +10,7 @@ import "src/IUniswapV2Pair.sol";
  * @dev based on UniswapTwapPriceOracleRoot by David Lucid <david@rari.capital> (https://github.com/davidlucid)
  * @notice Stores cumulative prices and returns TWAPs for assets on Uniswap V2 pairs.
  */
-contract UniswapTwapPriceOracleV2Ceiling {
+contract UniswapTwapPriceOracleV2CeilingV2 {
     using SafeMath for uint256;
 
     /**
@@ -41,7 +41,7 @@ contract UniswapTwapPriceOracleV2Ceiling {
     /**
      * @dev uniswapV2 pair between underlying and WETH
      */
-    IUniswapV2Pair constant public pair = IUniswapV2Pair(0x328dFd0139e26cB0FEF7B0742B49b0fe4325F821);
+    IUniswapV2Pair constant public pair = IUniswapV2Pair(0x73E02EAAb68a41Ea63bdae9Dbd4b7678827B2352);
 
     /**
      * @dev Governance address, can set maxBPCeiling and minBPCeiling

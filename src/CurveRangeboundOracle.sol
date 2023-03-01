@@ -48,7 +48,7 @@ contract CurveRangeboundOracle {
     address constant public underlying = 0x41D5D79431A913C4aE7d69a668ecdfE5fF9DFB68;
 
     /**
-     * @dev uniswapV2 pair between underlying and WETH
+     * @dev Curve pool with underlying and WETH
      */
     CurvePool immutable public pool;
 

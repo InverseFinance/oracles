@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.16;
+
+interface IAggregator {
+    function latestAnswer() external view returns (int256 answer);
+}
+interface IFeed {
+    function decimals() external view returns (uint8);
+    function latestAnswer() external view returns (uint);
+}
+
+interface ICurveRangeboundOracle {
+    function price() external view returns (uint256 price);
+}
+
+contract InvCurveFeed is IFeed {
+    ICurveRangeboundOracle public immutable oracle;
+    IAggregator public constant ETH = IAggregator(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+    
+    constructor (address invWethCurvePool){
+        oracle = ICurveRangeboundOracle(invWethCurvePool);
+    }
+
+    function latestAnswer() public view override returns (uint256) {
+        uint256 InvDollarPrice = oracle.price() * uint256(ETH.latestAnswer());
+
+        return InvDollarPrice / 1e8;
+    }
+
+    function decimals() public pure override returns (uint8) {
+        return 18;
+    }
+}
